@@ -73,3 +73,26 @@ class YoungGun(GameObject):
             Cowboy: The new Cowboy that was called in if valid. They will not be added to any `cowboys` lists until the turn ends. None otherwise.
         """
         return self._run_on_server('callIn', job=job)
+
+    # Custom stuff
+    @property
+    def next_call_in_tile(self):
+        t = None
+        if self.tile.y == 0:
+            t = self.tile.get_dir('East') or self.tile.get_dir('South')
+        elif self.tile.x == 21:
+            t = self.tile.get_dir('South') or self.tile.get_dir('West')
+        elif self.tile.y == 11:
+            t = self.tile.get_dir('West') or self.tile.get_dir('North')
+        elif self.tile.x == 0:
+            t = self.tile.get_dir('North') or self.tile.get_dir('East')
+        else:
+            print('NONONONONO')
+        for n in t.neighbors:
+            if not n.is_balcony:
+                return n
+        else:
+            for n in t.neighbors:
+                for nn in n.neighbors:
+                    if not nn.is_balcony:
+                        return nn

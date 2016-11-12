@@ -70,3 +70,11 @@ class Furnishing(GameObject):
         :rtype: Tile
         """
         return self._tile
+
+    # Custom stuff
+
+    def __str__(self):
+        name = 'Piano' if self._is_piano else 'Table'
+        tile = str(self.tile) if self.tile else 'No Tile!'
+        return "{}({}, {}, {})".format(name, tile, self._is_destroyed, self._health)
+

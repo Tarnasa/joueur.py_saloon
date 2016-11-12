@@ -145,35 +145,21 @@ class Tile(GameObject):
     """int: The valid directions that tiles can be in, "North", "East", "South", or "West"
     """
 
-    def get_neighbors(self):
-        """Gets the neighbors of this Tile
+    # Custom stuff
+    @property
+    def neighbors(self):
+        return [t for t in [self._tile_north, self._tile_south, self._tile_east, self._tile_west] if t]
 
-        :rtype list[Tile]
-        """
-        neighbors = []
+    @property
+    def pos(self):
+        return self._x, self._y
 
-        for direction in Tile.directions:
-            neighbor = getattr(self, "tile_" + direction.lower())
-            if neighbor:
-                neighbors.append(neighbor)
+    def distance(self, other):
+        return abs(self._x - other._x) + abs(self._y - other._y)
 
-        return neighbors
+    def get_dir(self, dir):
+        return getattr(self, 'tile_' + dir.lower())
 
-    def is_pathable(self):
-        """Checks if a Tile is pathable to units
+    def __str__(self):
+        return "({}, {})".format(self._x, self._y)
 
-        Returns:
-            bool: True if pathable, False otherwise
-        """
-        return not self.is_balcony and not self.cowboy and not self.furnishing
-
-    def has_neighbor(self, tile):
-        """Checks if this Tile has a specific neighboring Tile
-
-        Args:
-            tile (Tile): tile to check against
-
-        Returns:
-            bool: True if the tile is a neighbor of this Tile, False otherwise
-        """
-        return bool(tile and tile in self.get_neighbors())

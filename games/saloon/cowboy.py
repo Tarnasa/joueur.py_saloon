@@ -31,7 +31,7 @@ class Cowboy(GameObject):
         self._tolerance = 0
         self._turns_busy = 0
 
-
+        self.preferred = None
 
     @property
     def can_move(self):
@@ -168,3 +168,25 @@ class Cowboy(GameObject):
             bool: True if the play worked, False otherwise.
         """
         return self._run_on_server('play', piano=piano)
+
+
+    def __str__(self):
+        return "Cowboy({}, ({}, {}))\n".format(
+                self._id, self.tile._x, self.tile._y) +\
+                        '\n'.join("{}={}".format(k, v) for k, v in {
+                    '_can_move': self._can_move,
+                    '_drunk_direction': self._drunk_direction,
+                    '_focus': self._focus,
+                    '_health': self._health,
+                    '_is_dead': self._is_dead,
+                    '_is_drunk': self._is_drunk,
+                    '_job': self._job,
+                    '_owner': self._owner,
+                    '_tile': self._tile,
+                    '_tolerance': self._tolerance,
+                    '_turns_busy': self._turns_busy,
+                    'path': self.path,
+                    'path_index': self.path_index,
+                    'moving': self.moving,
+                    'preferred': self.preferred
+                    }.items())
