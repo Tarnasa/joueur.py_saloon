@@ -65,7 +65,10 @@ class AI(BaseAI):
 
         if True:
             if self.player.score > self.player.opponent.score + 40:
-                train_strat(self)
+                try:
+                    train_strat(self)
+                except Exception:
+                    pass
             else:
                 move_starting_cowboys(self)
                 play_pianos(self)
