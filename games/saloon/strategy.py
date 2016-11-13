@@ -440,6 +440,20 @@ def move_starting_cowboys(ai):
         # Move to assignment
         path = cowboy.assignment
         try:
+            if cowboy.prev_tile != cowboy.tile:
+                cowboy.prev_tile = cowboy.tile
+                cowboy.same_tile = 0
+            else:
+                cowboy.same_tile += 1
+                if cowboy.same_tile > 5:
+                    for n in cowboy.tile.neighbors:
+                        if n.furnishing or n.furnishing.is_piano:
+                            break
+                    else:
+                        print('STUCK')
+                        path = safe_path(ai, cowboy.tile)
+                        if path:
+                            cowboy.assignment = path
             try:
                 i = path.index(cowboy.tile)
                 if i < len(path) - 2:

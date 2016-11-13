@@ -33,6 +33,8 @@ class Cowboy(GameObject):
 
         self.preferred = None
         self.prev_assignment = []
+        self.prev_tile = None
+        self.same_tile = 0
 
     @property
     def can_move(self):
