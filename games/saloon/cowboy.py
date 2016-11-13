@@ -32,6 +32,7 @@ class Cowboy(GameObject):
         self._turns_busy = 0
 
         self.preferred = None
+        self.prev_assignment = []
 
     @property
     def can_move(self):

@@ -38,7 +38,7 @@ class AI(BaseAI):
     def run_turn(self):
         genesis = time.time()
 
-        if True:
+        if False:
             if self.player.time_remaining > 2e9:
                 if self.i == 0:
                     t = self.game.current_turn

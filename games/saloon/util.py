@@ -130,7 +130,9 @@ def opposite(direction):
 
 _dirs = ['north', 'south', 'east', 'west']
 def safe(tile):
-    # TODO: Watch for bottle already on tile when it gets implemented
+    if tile.bottle:
+        return False
+    # Detect if a bottle will be here in two turns
     if not tile._is_balcony and not tile.furnishing and not tile.cowboy:
         for dir in _dirs:
             n = tile.get_dir(dir)
