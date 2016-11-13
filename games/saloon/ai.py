@@ -95,7 +95,7 @@ class AI(BaseAI):
                 if len(bartenders) < 2 and open_or_same(spawn, 'Bartender'):
                     y.call_in('Bartender')
             # Stomp furnishings with sharpshooters
-            if y.can_call_in and spawn.furnishing:
+            if y.can_call_in and (spawn.furnishing or (spawn.cowboy and spawn.cowboy.owner != self.player)):
                 y.call_in('Sharpshooter')
 
         for s in sharpshooters:
