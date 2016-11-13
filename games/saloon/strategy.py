@@ -440,36 +440,49 @@ def move_starting_cowboys(ai):
         # Move to assignment
         path = cowboy.assignment
         try:
-            i = path.index(cowboy.tile)
-            if i < len(path) - 2:
-                target = path[i + 1]
-                if not safe(target):  # Bottle gonna hit there
-                    new_path = safe_bfs(ai, cowboy.tile)
-                    if new_path and len(new_path) < len(path) + 3:
-                        cowboy.assignment = new_path
-                        cowboy.move(new_path[1])
-                elif target.cowboy:
-                    # Swap assignments if he has not moved yet
-                    blocker = target.cowboy
-                    if blocker.owner == cowboy.owner and blocker.can_move:
-                        print("Swap {} {}".format(cowboy.id, blocker.id))
-                        blocker.assignment, cowboy.assignment = cowboy.assignment, blocker.assignment
-                        #cowboys_to_do.append(blocker)
-                        #cowboys_to_do.append(cowboy)
-                        try:
-                            i = blocker.assignment.index(blocker.tile)
-                            blocker.move(blocker.assignment[i + 1])
-                        except ValueError:
-                            pass
-                        try:  # Use old path
-                            i = blocker.assignment.index(cowboy.tile)
-                            cowboy.move(blocker.assignment[i + 1])
-                        except ValueError:
-                            pass
-                    elif cowboy.job == 'Bartender' and blocker.owner != cowboy.owner:
-                        throw_dir, target = best_throw_direction(cowboy)
-                        if throw_dir:
-                            cowboy.act(cowboy.tile.get_dir(throw_dir), best_drunk_direction(target.tile))
+            try:
+                i = path.index(cowboy.tile)
+                if i < len(path) - 2:
+                    target = path[i + 1]
+                    if not safe(target):  # Bottle gonna hit there
+                        new_path = safe_bfs(ai, cowboy.tile)
+                        if new_path and len(new_path) < len(path) + 3:
+                            cowboy.assignment = new_path
+                            cowboy.move(new_path[1])
+                    elif target.cowboy:
+                        # Swap assignments if he has not moved yet
+                        blocker = target.cowboy
+                        if blocker.owner == cowboy.owner and blocker.can_move and\
+                                blocker.assignment != cowboy.assignment:
+                            print("Swap {} {}".format(cowboy.id, blocker.id))
+                            blocker.assignment, cowboy.assignment = cowboy.assignment, blocker.assignment
+                            #cowboys_to_do.append(blocker)
+                            #cowboys_to_do.append(cowboy)
+                            try:
+                                i = blocker.assignment.index(blocker.tile)
+                                blocker.move(blocker.assignment[i + 1])
+                            except ValueError:
+                                pass
+                            try:  # Use old path
+                                i = blocker.assignment.index(cowboy.tile)
+                                cowboy.move(blocker.assignment[i + 1])
+                            except ValueError:
+                                pass
+                        elif cowboy.job == 'Bartender' and blocker.owner != cowboy.owner:
+                            throw_dir, target = best_throw_direction(cowboy)
+                            if throw_dir:
+                                cowboy.act(cowboy.tile.get_dir(throw_dir), best_drunk_direction(target.tile))
+                            else:
+                                # Recalculate path to the same goal
+                                def goal_func(t):
+                                    return t == path[-1]
+                                def wall_func(t):
+                                    return t.cowboy or t.furnishing or t.is_balcony
+                                path = bfs(cowboy.tile, goal_func, wall_func)
+                                if path and len(path) < len(cowboy.assignment) + 2:
+                                    cowboy.assignment = path
+                                    cowboy.move(path[1])
+                                    print('Throw Recalc')
                         else:
                             # Recalculate path to the same goal
                             def goal_func(t):
@@ -480,46 +493,47 @@ def move_starting_cowboys(ai):
                             if path and len(path) < len(cowboy.assignment) + 2:
                                 cowboy.assignment = path
                                 cowboy.move(path[1])
-                                print('Throw Recalc')
-                    else:
-                        # Recalculate path to the same goal
-                        def goal_func(t):
-                            return t == path[-1]
-                        def wall_func(t):
-                            return t.cowboy or t.furnishing or t.is_balcony
-                        path = bfs(cowboy.tile, goal_func, wall_func)
-                        if path and len(path) < len(cowboy.assignment) + 2:
-                            cowboy.assignment = path
-                            cowboy.move(path[1])
-                            print('Recalc')
-                elif not target.furnishing:
-                    cowboy.move(path[i + 1])
-                # Throw bottles if far away from target piano
-                if cowboy.job == 'Bartender':
-                    if len(cowboy.assignment) - i > 4:
-                        throw_dir, target = best_throw_direction(cowboy)
-                        if throw_dir:
-                            cowboy.act(cowboy.tile.get_dir(throw_dir), best_drunk_direction(target.tile))
+                                print('Recalc')
+                    elif not target.furnishing:
+                        cowboy.move(path[i + 1])
+                    # Throw bottles if far away from target piano
+                    if cowboy.job == 'Bartender':
+                        if len(cowboy.assignment) - i > 4:
+                            throw_dir, target = best_throw_direction(cowboy)
+                            if throw_dir:
+                                cowboy.act(cowboy.tile.get_dir(throw_dir), best_drunk_direction(target.tile))
 
-            elif i == len(path) - 1:  # We reached the end of our path
-                # Find a new target
-                path = safe_bfs(ai, cowboy.tile)
-                if path:
-                    cowboy.assignment = path
-                    cowboy.move(path[1])
-                else:  # No path found
-                    pass  # TODO attack
-            else: # Play the piano we are assigned to
-                if not safe(cowboy.tile):  # Bottle gonna hit there
-                    new_path = safe_bfs(ai, cowboy.tile)
-                    if new_path and len(new_path) < len(path) + 3:
-                        cowboy.assignment = new_path
-                        cowboy.move(new_path[1])
-                target = path[-1]
-                if target.furnishing and target.furnishing.is_piano:
-                    if target.furnishing.is_playing:
-                        cowboy.play(path[-1])
-                else:  # We broke out piano, or something wierd happened
+                elif i == len(path) - 1:  # We reached the end of our path
+                    # Find a new target
+                    path = safe_bfs(ai, cowboy.tile)
+                    if path:
+                        cowboy.assignment = path
+                        cowboy.move(path[1])
+                    else:  # No path found
+                        pass  # TODO attack
+                else: # Play the piano we are assigned to
+                    if not safe(cowboy.tile):  # Bottle gonna hit there
+                        new_path = safe_bfs(ai, cowboy.tile)
+                        if new_path and len(new_path) < len(path) + 3:
+                            cowboy.assignment = new_path
+                            cowboy.move(new_path[1])
+                    else:
+                        target = path[-1]
+                        if target.furnishing and target.furnishing.is_piano:
+                            if target.furnishing.is_playing:
+                                cowboy.play(path[-1])
+                        else:  # We broke out piano, or something wierd happened
+                            if target.furnishing:
+                                print('Table?' + str(cowboy.id))
+                            # Find a new target
+                            path = safe_bfs(ai, cowboy.tile)
+                            if path and len(path) > 1:
+                                cowboy.assignment = path
+                                cowboy.move(path[1])
+                            else:  # No path found
+                                pass  # TODO attack
+            except ValueError:  # We got drunk and moved off our path
+                if not cowboy.is_drunk:
                     # Find a new target
                     path = safe_bfs(ai, cowboy.tile)
                     if path and len(path) > 1:
@@ -527,57 +541,56 @@ def move_starting_cowboys(ai):
                         cowboy.move(path[1])
                     else:  # No path found
                         pass  # TODO attack
-        except ValueError:  # We got drunk and moved off our path
-            if not cowboy.is_drunk:
-                # Find a new target
-                path = safe_bfs(ai, cowboy.tile)
-                if path and len(path) > 1:
-                    cowboy.assignment = path
-                    cowboy.move(path[1])
-                else:  # No path found
-                    pass  # TODO attack
-    t = ai.game.current_turn // 2
-    if t < 4:
-        assignments = generate_starting_assignments(ai)
-        if t < len(assignments):
-            (goal, path), job = assignments[t]
-            new = ai.player.young_gun.call_in(job)
-            new.assignment = path
-            new.move(path[1])
-    elif t > 8: # Spawn everything else
-        y = ai.player.young_gun
-        for job in ['Brawler', 'Sharpshooter', 'Bartender']:
-            if sum(1 for c in ai.player.cowboys if c.job == job and not c.is_dead) < 2:
-                if y.can_call_in:
-                    t = y.call_in_tile
-                    # Stomp enemies and non-pianos
-                    if (not t.furnishing or not t.furnishing.is_piano) and\
-                            (not t.cowboy or t.cowboy.owner != ai.player):
-                        new = y.call_in(job)
-                        if new:  # Give him an assignment
-                            new.assignment = []  # Don't crash
-                            path = safe_bfs(ai, new.tile)
-                            if path:
-                                new.assignment = path
-                                new.move(path[1])
-                            else:  # TODO: attack
-                                pass
-                        break
-    # Log all assignments
-    if t == 0:
-        for f in ai.game.furnishings:
-            if not f.is_destroyed and f.is_piano:
-                f.log(f.tile.id)
-    for c in ai.player.cowboys:
-        if c.assignment is not c.prev_assignment:
-            if not c.is_dead:
-                if c.assignment and len(c.assignment) > 0:
-                    t = c.assignment[-1]
-                    if t:
-                        c.log(t.id)
-                else:
-                    c.log('None')
-        c.prev_assignment = c.assignment
+        except Exception:  # hahaha so bad
+            pass
+    try:
+        t = ai.game.current_turn // 2
+        if t < 4:
+            assignments = generate_starting_assignments(ai)
+            if t < len(assignments):
+                (goal, path), job = assignments[t]
+                new = ai.player.young_gun.call_in(job)
+                new.assignment = path
+                new.move(path[1])
+        elif t > 8: # Spawn everything else
+            y = ai.player.young_gun
+            for job in ['Brawler', 'Sharpshooter', 'Bartender']:
+                if sum(1 for c in ai.player.cowboys if c.job == job and not c.is_dead) < 2:
+                    if y.can_call_in:
+                        t = y.call_in_tile
+                        # Stomp enemies and non-pianos
+                        if (not t.furnishing or not t.furnishing.is_piano) and\
+                                (not t.cowboy or t.cowboy.owner != ai.player):
+                            new = y.call_in(job)
+                            if new:  # Give him an assignment
+                                new.assignment = [new.tile]  # Don't crash
+                                path = safe_bfs(ai, new.tile)
+                                if path:
+                                    new.assignment = path
+                                    new.move(path[1])
+                                else:  # TODO: attack
+                                    pass
+                            break
+        # Log all assignments
+        if t == 0:
+            for f in ai.game.furnishings:
+                if not f.is_destroyed and f.is_piano:
+                    #f.log(f.tile.id)
+                    pass
+        for c in ai.player.cowboys:
+            if c.assignment is not c.prev_assignment:
+                if not c.is_dead:
+                    if c.assignment and len(c.assignment) > 0:
+                        t = c.assignment[-1]
+                        if t:
+                            #c.log(t.id)
+                            pass
+                    else:
+                        #c.log('None')
+                        pass
+            c.prev_assignment = c.assignment
+    except Exception:  # TODO SOBAD
+        pass
 
 
 def _safe_wall_func(dist, t):

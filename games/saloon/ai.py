@@ -64,9 +64,12 @@ class AI(BaseAI):
             return True
 
         if True:
-            move_starting_cowboys(self)
-            play_pianos(self)
-            draw_everything(self, general_tile_func)
+            if self.player.score > self.player.opponent.score + 40:
+                train_strat(self)
+            else:
+                move_starting_cowboys(self)
+                play_pianos(self)
+                draw_everything(self, general_tile_func)
             return True
 
         # Init stuff
