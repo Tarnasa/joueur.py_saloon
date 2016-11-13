@@ -563,9 +563,11 @@ def move_starting_cowboys(ai):
             assignments = generate_starting_assignments(ai)
             if t < len(assignments):
                 (goal, path), job = assignments[t]
-                new = ai.player.young_gun.call_in(job)
-                new.assignment = path
-                new.move(path[1])
+                t = ai.player.young_gun.call_in_tile
+                if not (t.furnishing and t.furnishing.piano):
+                    new = ai.player.young_gun.call_in(job)
+                    new.assignment = path
+                    new.move(path[1])
         elif t > 8: # Spawn everything else
             y = ai.player.young_gun
             for job in ['Brawler', 'Sharpshooter', 'Bartender']:
