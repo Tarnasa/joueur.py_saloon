@@ -144,7 +144,7 @@ def safe(tile):
                     if n.bottle and n.bottle.direction.lower() == opposite(dir):
                         return False
         return True
-    return False
+    return True
 
 def get_spawn_tile(player):
     t = player.young_gun.tile
