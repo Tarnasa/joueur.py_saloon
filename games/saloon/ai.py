@@ -3,10 +3,18 @@
 from joueur.base_ai import BaseAI
 from games.saloon.tile import Tile
 import random
+import time
 
-from games.saloon.strategy import _dirs, move_to
-#from games.saloon.util import move_to
+from games.saloon.util import bfs, shortest_pairs, wall_func,\
+        alignment, toward, flood_path, flood_path_fast,\
+        cowboy_bfs, safe, classify_pianos, set_tile_piano
+from games.saloon.strategy import best_drunk_direction, best_bang_direction,\
+        spawn_everything, move_over, avoid_bottles,\
+        brawl_enemy_pianos, play_pianos,\
+        get_spawn_distance_to_enemy_piano, shoot_enemy_pianos, assign_pianos,\
+        move_to, move_starting_cowboys
 from games.saloon.asciivis import draw_everything, general_tile_func
+from games.saloon.train import train_strat
 
 
 class AI(BaseAI):
@@ -26,93 +34,107 @@ class AI(BaseAI):
     def end(self, won, reason):
         pass
 
+    i = 0
     def run_turn(self):
-        p = self.player
-        y = self.player.young_gun
-        t = self.game.current_turn
+        genesis = time.time()
 
-        rot_right = {'east': 'south', 'south': 'west', 'west': 'north', 'north': 'east'}
-
-        bartenders = [c for c in p.cowboys if c.job == 'Bartender' and not c.is_dead]
-        brawlers = [c for c in p.cowboys if c.job == 'Brawler' and not c.is_dead]
-        sharpshooters = [c for c in p.cowboys if c.job == 'Sharpshooter' and not c.is_dead]
-
-        def kill(cowboy):
-            def goal_func(t):
-                return t.has_hazard
-            move_to(self, cowboy, goal_func)
-
-        if t in [0, 1]:
-            y.call_in('Brawler')
-        elif t in [2, 3]:
-            if brawlers:
-                b = brawlers[0]
-                next = y.next_call_in_tile
-                for n in b.tile.neighbors:
-                    if n == next:
-                        b.move(n)
-                        break
-            y.call_in('Bartender')
-        elif t >=4:
-            def next_bottle(tile):
-                for n in tile.neighbors:
-                    if n.bottle:
-                        if n.get_dir(n.bottle.direction) == tile:
-                            return True
-                return False
-            def open_or_same(tile, job):
-                return not tile.furnishing and\
-                        not tile.bottle and not next_bottle(tile) and\
-                        (not tile.cowboy or (tile.cowboy and tile.cowboy.job == job))
-            spawn = y.call_in_tile
-            next_spawn = y.next_call_in_tile
-            if brawlers:
-                for b in brawlers:
-                    next = y.next_call_in_tile
-                    for n in b.tile.neighbors:
-                        if n == next:
-                            b.move(n)
-                            break
+        if True:
+            if self.player.time_remaining > 2e9:
+                if self.i == 0:
+                    t = self.game.current_turn
+                    if t < 20:
+                        self.i = 21 - t
+                    elif (t // 2) % 10 == 0:
+                        self.i = t
                     else:
-                        if spawn != next_spawn:
-                            kill(b)
-            if spawn == next_spawn:
-                if len(brawlers) < 2 and open_or_same(spawn, 'Brawler'):
-                    y.call_in('Brawler')
-            else:
-                if bartenders:
-                    for b in bartenders:
-                        for dir in _dirs:
-                            if b.tile.get_dir(dir) == spawn:
-                                b.move(spawn)
-                                throw_dir = rot_right[dir]
-                                throw_tile = b.tile.get_dir(throw_dir)
-                                if not throw_tile.cowboy:
-                                    b.act(throw_tile, throw_dir)
-                                break
-                        else:
-                            kill(b)
-                if len(bartenders) < 2 and open_or_same(spawn, 'Bartender'):
-                    y.call_in('Bartender')
-            # Stomp furnishings with sharpshooters
-            if y.can_call_in and (spawn.furnishing or (spawn.cowboy and spawn.cowboy.owner != self.player)):
-                y.call_in('Sharpshooter')
-
-        for s in sharpshooters:
-            def goal_func(t):
-                if t.cowboy and t.cowboy != s:
-                    return False
-                for n in t.neighbors:
-                    if n.furnishing and n.furnishing.is_piano:
+                        train_strat(self)
+                        draw_everything(self, general_tile_func)
                         return True
-                return False
-            move_to(self, s, goal_func)
-            for n in s.tile.neighbors:
-                if n.furnishing and n.furnishing.is_piano:
-                    s.play(n.furnishing)
-                    break
+                    return False
+                elif self.i == 1:
+                    self.i = 0
+                    train_strat(self)
+                    draw_everything(self, general_tile_func)
+                    return True
+                else:
+                    self.i -= 1
+                    return False
+            train_strat(self)
+            draw_everything(self, general_tile_func)
+            return True
+
+        if True:
+            move_starting_cowboys(self)
+            play_pianos(self)
+            draw_everything(self, general_tile_func)
+            return True
+
+        # Init stuff
+        self.tiles_pos = {(tile.x, tile.y): tile for tile in self.game.tiles}
+        self.pianos = [f for f in self.game.furnishings if f._is_piano and not f._is_destroyed]
+        self.hazards = [t for t in self.game.tiles if t._has_hazard]
+        classify_pianos(self)
+        set_tile_piano(self)
+        for c in self.player.cowboys:
+            c.moving = False
+            c.target = None
+
+        spawn_everything(self)
+
+        avoid_bottles(self)
+
+        if False and self.player.id == '0':
+            distance = get_spawn_distance_to_enemy_piano(self)
+            death = predict_brawler_death(self)
+            print('distance: ', distance, death)
+            if self.player.young_gun.tile.x > 11:
+                print('do it')
+                kill_my_brawlers(self)
+                brawl_enemy_pianos(self)
+
+        assignments = assign_pianos(self)
+
+        for c, target in assignments.items():
+            c.target = target
+            path = cowboy_bfs(c, lambda t: t == target)
+            if path and len(path) > 1:
+                target = path[1]
+                if target.cowboy and target.cowboy.owner == self.player:
+                    if move_over(self, target.cowboy, c):
+                        c.move_pref(target)
+                    else:  # Try to find another path of equal distance
+                        print(c.id, 'halp')
+                else:
+                    if safe(target):
+                        c.move_pref(target)
+                    else:
+                        print(c.id, "It's dangerous out there!")
+
+        play_pianos(self)  # Teehee
+
+        for cowboy in self.player.cowboys:
+            if cowboy.job == 'Bartender' and not cowboy._is_dead and c.target is None:
+                for enemy in self.player.opponent.cowboys:  # TODO: Check for stuff in the way
+                    if cowboy.turns_busy == 0 and alignment(enemy.tile, cowboy.tile) == 0:
+                        if cowboy.act(toward(cowboy.tile, enemy.tile),
+                                best_drunk_direction(enemy.tile)):
+                            print(cowboy.id, 'Throw at enemy')
+                            break
+                        else:
+                            print(cowboy.id, 'Failed to throw')
+                else:
+                    path = bfs(cowboy.tile, lambda t: t.cowboy and t.cowboy.owner != self.player, wall_func)
+                    cowboy.act(cowboy.tile.get_dir('north'), '')
+                    if path:
+                        if cowboy.can_move and len(path) > 2:
+                            cowboy.move(path[1])
+
+        shoot_enemy_pianos(self)
+
+        play_pianos(self)
 
         draw_everything(self, general_tile_func)
 
+        print("Took {} seconds".format(time.time() - genesis))
         return True
 

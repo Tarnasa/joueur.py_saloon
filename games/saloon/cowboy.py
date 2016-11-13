@@ -169,6 +169,21 @@ class Cowboy(GameObject):
         """
         return self._run_on_server('play', piano=piano)
 
+    # Custom stuff
+    @property
+    def near_piano(self):
+        return sum(1 for t in self.tile.neighbors if t.furnishing and t.furnishing._is_piano)
+
+    def move_pref(self, tile):
+        dx = tile.x - self.tile.x
+        dy = tile.y - self.tile.y
+        r = self.move(tile)
+        if r:
+            for n in self.tile.neighbors:
+                if n.x - tile.x == dx and n.y - tile.y == dy:
+                    self.preferred = n
+                    break
+
 
     def __str__(self):
         return "Cowboy({}, ({}, {}))\n".format(

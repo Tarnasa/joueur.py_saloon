@@ -1,3 +1,6 @@
+from games.saloon.util import _dirs
+from games.saloon.strategy import move_to
+
 def train_strat(self):
     p = self.player
     y = self.player.young_gun
@@ -44,6 +47,10 @@ def train_strat(self):
                 for n in b.tile.neighbors:
                     if n == next:
                         b.move(n)
+                        if self.game.current_turn < 20:
+                            b.log('Chugga chugga')
+                        else:
+                            b.log('Choo choo!')
                         break
                 else:
                     if spawn != next_spawn:
@@ -66,3 +73,21 @@ def train_strat(self):
                         kill(b)
             if len(bartenders) < 2 and open_or_same(spawn, 'Bartender'):
                 y.call_in('Bartender')
+        # Stomp furnishings with sharpshooters
+        if y.can_call_in and (spawn.furnishing or (spawn.cowboy and spawn.cowboy.owner != self.player)):
+            y.call_in('Sharpshooter')
+
+    for s in sharpshooters:
+        def goal_func(t):
+            if t.cowboy and t.cowboy != s:
+                return False
+            for n in t.neighbors:
+                if n.furnishing and n.furnishing.is_piano:
+                    return True
+            return False
+        move_to(self, s, goal_func)
+        for n in s.tile.neighbors:
+            if n.furnishing and n.furnishing.is_piano:
+                s.play(n.furnishing)
+                break
+

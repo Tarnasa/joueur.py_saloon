@@ -151,6 +151,10 @@ class Tile(GameObject):
         return [t for t in [self._tile_north, self._tile_south, self._tile_east, self._tile_west] if t]
 
     @property
+    def hor_neighbors(self):
+        return [t for t in [self._tile_east, self._tile_west, self._tile_north, self._tile_south] if t]
+
+    @property
     def pos(self):
         return self._x, self._y
 

@@ -15,7 +15,13 @@ def follow(parent_dict, start):
         pass
 
 
-def bfs(start, goal_func, wall_func):
+def _bfs_neighbors(tile):
+    yield from tile.neighbors
+def bfs(start, goal_func, wall_func, hor=False):
+    neighbors = _bfs_neighbors
+    if hor:
+        def neighbors(tile):
+            yield from tile.hor_neighbors
     frontier = deque()
     frontier.append(start)
     parents = {start: None}
@@ -23,7 +29,7 @@ def bfs(start, goal_func, wall_func):
         top = frontier.popleft()
         if goal_func(top):
             return list(reversed(list(follow(parents, top))))
-        for neighbor in top.neighbors:
+        for neighbor in neighbors(top):
             if wall_func(neighbor) and not goal_func(neighbor):
                 continue
             if neighbor not in parents:
@@ -190,6 +196,23 @@ def set_tile_piano(ai):
             for n in furnishing.tile.neighbors:
                 n.piano = furnishing
 
+def paths_to_all_goals(start, goal_func, wall_func):
+    frontier = deque()
+    frontier.append(start)
+    goals = []
+    parents = {start: None}
+    while frontier:
+        top = frontier.popleft()
+        if goal_func(top):
+            goals.append((top, list(reversed(list(follow(parents, top))))))
+            continue
+        for neighbor in top.neighbors:
+            if wall_func(neighbor) and not goal_func(neighbor):
+                continue
+            if neighbor not in parents:
+                frontier.append(neighbor)
+                parents[neighbor] = top
+    return goals
 
 # Tests
 if False:

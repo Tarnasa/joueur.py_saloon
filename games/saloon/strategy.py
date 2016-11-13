@@ -2,7 +2,7 @@ from functools import partial, lru_cache
 from collections import OrderedDict
 
 from games.saloon.util import shortest_pairs, cowboy_bfs, transpose, opposite,\
-        get_spawn_tile, is_near_enemy_piano, bfs, alignment
+        get_spawn_tile, is_near_enemy_piano, bfs, alignment, paths_to_all_goals
 from games.saloon.asciivis import draw_everything, general_tile_func
 
 
@@ -72,33 +72,6 @@ def spawn_everything(ai):
             ai.player.young_gun.call_in(job)
             break
 
-def match_nearest_pianos(ai):
-    """
-    From each piano, fill all open spots on the piano with nearest friendlies
-    """
-    cowboys = [c for c in ai.player.cowboys if not c._is_dead and c.can_move]
-    spots = list()
-    for piano in ai.pianos:
-        for n in piano.tile.neighbors:
-            if n.cowboy in cowboys:
-                cowboys.remove(n.cowboy)
-            elif not n.cowboy and not n.furnishing and not n._is_balcony:
-                spots.append(n)
-    assignments = OrderedDict()
-
-    def spot_score(cowboy, spot):
-        # Prefer tiles which are further from your teams Y-side (UNTESTED)
-        return spot.distance(cowboy.tile), spot.y * (int(ai.player.id)*2-1)
-
-    try:
-        for c in cowboys:
-            nearest = min(spots, key=partial(spot_score, c))
-            assignments[c] = nearest
-            spots.remove(nearest)
-    except ValueError:
-        pass
-    return assignments
-
 def good_sharpshooter_spots(ai, spots):
     sharpshooter_spots = list()
     left = ai.player.id == '0'
@@ -157,9 +130,6 @@ def assign_pianos(ai):
                 assignments[brawler] = spot
                 brawler_spots.remove(spot)
                 spots.remove(spot)
-                # for n in spot.piano.tile.neighbors:
-                #     if n in spots:
-                #         spots.remove(n)
 
     # Find good sharpshooter spots
     sharpshooter_spots = good_sharpshooter_spots(ai, spots)
@@ -300,57 +270,6 @@ def get_spawn_distance_to_enemy_piano(ai, threshold=1):
     else:
         return 9999
 
-
-def predict_brawler_death(ai):
-    """ Returns the approximate number of turns it will take to kill both my brawlers """
-    brawlers = [c for c in ai.player.cowboys if c.job == 'Brawler' and not c._is_dead]
-    if not brawlers:
-        return 0
-    h = max(b.health for b in brawlers)
-    if len(brawlers) == 2:
-        return brawlers[0].tile.distance(brawlers[1].tile) + h
-    elif len(brawlers) == 1:
-        hazards = [t for t in ai.hazards if not t.furnishing and not t.cowboy]
-        if hazards:
-            print('hazards: ', hazards)
-            return min(t.distance(brawlers[0].tile) for t in hazards) + h
-        else:
-            return 100
-    else:
-        print('wat: ', brawlers, h)
-
-
-def kill_my_brawlers(ai):
-    """ Tries to kill your brawlers """
-    brawlers = [c for c in ai.player.cowboys if not c._is_dead]
-    def hazard_goal_func(t):
-        return t.has_hazard and not t.furnishing and\
-                (not t.cowboy or t.cowboy in brawlers)
-    hazards = [t for t in ai.hazards if hazard_goal_func(t)]
-    for c in ai.player.cowboys:
-        if not c._is_dead:
-            if c.job == 'Brawler':
-                if hazards: # Move to nearest hazard
-                    path = cowboy_bfs(c, hazard_goal_func)
-                    if path and 1 < len(path) < 10:
-                        print('Move to nearest hazard')
-                        if not path[1].cowboy:
-                            c.move_pref(path[1])
-                        elif path[1].cowboy not in brawlers:
-                            if move_over(ai, path[1].cowboy, c):
-                                c.move_pref(path[1])
-                        else:
-                            pass  # Wait your turn to die
-                        break
-                if len(brawlers) == 2: # kill the other brawler, but stay on the piano
-                    target = [b for b in brawlers if b is not c]
-                    path = cowboy_bfs(ai, lambda t: t.cowboy is target)
-                    if path and len(path) > 2:
-                        print('brawl ally brawler')
-                        c.move(path[1])  # TODO: Outaway
-            # TODO: Use own bartenders
-
-
 def brawl_enemy_pianos(ai):
     """ Move your brawlers toward enemy pianos, play them """
     for brawler in ai.player.cowboys:
@@ -436,25 +355,6 @@ def move_throw_beer(ai):
                     if cowboy.can_move and len(path) > 2:
                         cowboy.move(path[1])
 
-""" TODO finish this """
-def move_and_throw_bottles(ai):
-    for cowboy in self.player.cowboys:
-        if cowboy.job == 'Bartender' and not cowboy._is_dead and c.target is None:
-            for enemy in self.player.opponent.cowboys:  # TODO: Check for stuff in the way
-                if cowboy.turns_busy == 0 and alignment(enemy.tile, cowboy.tile) == 0:
-                    if cowboy.act(toward(cowboy.tile, enemy.tile),
-                            best_drunk_direction(enemy.tile)):
-                        print(cowboy.id, 'Throw at enemy')
-                        break
-                    else:
-                        print(cowboy.id, 'Failed to throw')
-            else:
-                path = bfs(cowboy.tile, lambda t: t.cowboy and t.cowboy.owner != self.player, wall_func)
-                # cowboy.act(cowboy.tile.get_dir('north'), '')
-                if path:
-                    if cowboy.can_move and len(path) > 2:
-                        cowboy.move(path[1])
-
 def move_to(ai, cowboy, goal_func):
     path = cowboy_bfs(cowboy, goal_func)
     if path and len(path) > 1:
@@ -465,3 +365,91 @@ def move_to(ai, cowboy, goal_func):
         if not target.cowboy:
             cowboy.move(target)
 
+def generate_assignments(ai):
+    """
+    Find all pairs paths
+    Pop cowboy with the longest shortest path
+    assign
+
+    NOTE: Need to make sure to order my spawns so that brawlers get assigned the farthest pianos
+    """
+
+def spawn_pather(ai, start, goal):
+    """
+    Move down/up first, then right/left
+    """
+
+
+def generate_starting_assignments(ai):
+    """
+    Grab nearest 6 pianos
+    Order pianos by X
+    Assign first spawn to nearest in X
+    Order pianos by Y
+    Assign subsequent spawns, farthest Y first
+
+    After assigning spawns, assign roles to each spawn, based on distance
+    Assign Brawlers to further pianos
+    Assign sharpshooters to good sharpshooter pianos
+    Assign sharpshooters and bartenders to nearest pianos
+    Every unit must move down on their first turn
+        This should be guaranteed by the pather, and the assignment above
+
+    Set cowboy.assignment to that piano
+    """
+    left = ai.player.id == '0'
+    m = 1 if left else -1
+
+    pianos = [f for f in ai.game.furnishings if not f.is_destroyed and f.is_piano]
+    # Find all pianos and their distances to spawn
+    spawn = ai.player.young_gun.call_in_tile
+    def goal_func(t):
+        return t.furnishing and t.furnishing.is_piano
+    def wall_func(t):
+        return t.furnishing or t.is_balcony
+    piano_paths = paths_to_all_goals(spawn, goal_func, wall_func)
+    # Pick nearest X
+    x_pianos = list(sorted(((goal, path) for goal, path in piano_paths),
+            key=lambda p: -p[0].x*m))
+    goal_pianos = [x_pianos[0]]
+    # Recalculate X path to use hor movement
+    new_path  = bfs(spawn, goal_func, wall_func, hor=True)
+    goal_pianos = [(new_path[-1], new_path)]
+    # Order rest by -Y
+    y_pianos = list(sorted(((goal, path) for goal, path in piano_paths if goal != goal_pianos[0][0]),
+            key=lambda p: -p[0].y*m))
+    goal_pianos.extend(y_pianos)
+
+    goal_pianos = list(sorted(((goal, path) for goal, path in piano_paths),
+            key=lambda p: -p[0].y*m))
+
+    # Assign spawns
+    return list(zip(goal_pianos, ['Sharpshooter', 'Sharpshooter', 'Bartender', 'Bartender', 'Brawler', 'Brawler']))
+
+    
+def move_starting_cowboys(ai):
+    """
+    Uses generate_starting_assignments 
+    """
+    for cowboy in ai.player.cowboys:
+        if not cowboy.can_move:
+            continue
+        # Move to assignment
+        path = cowboy.assignment
+        try:
+            i = path.index(cowboy.tile)
+            if i < len(path) - 1:
+                target = path[i + 1]
+                if not target.furnishing or target.cowboy:
+                    if not cowboy.move(path[i + 1]):
+                        print('NO!')
+        except ValueError:
+            pass
+    t = ai.game.current_turn // 2
+    if t < 4:
+        assignments = generate_starting_assignments(ai)
+        if t < len(assignments):
+            (goal, path), job = assignments[t]
+            new = ai.player.young_gun.call_in(job)
+            new.assignment = path
+    
