@@ -53,3 +53,7 @@ docs/output/
 
 # PyBuilder
 target/
+
+# Vim
+*.swp
+*.swo

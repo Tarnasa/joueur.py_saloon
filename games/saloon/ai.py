@@ -94,6 +94,23 @@ class AI(BaseAI):
                             kill(b)
                 if len(bartenders) < 2 and open_or_same(spawn, 'Bartender'):
                     y.call_in('Bartender')
+            # Stomp furnishings with sharpshooters
+            if y.can_call_in and spawn.furnishing:
+                y.call_in('Sharpshooter')
+
+        for s in sharpshooters:
+            def goal_func(t):
+                if t.cowboy and t.cowboy != s:
+                    return False
+                for n in t.neighbors:
+                    if n.furnishing and n.furnishing.is_piano:
+                        return True
+                return False
+            move_to(self, s, goal_func)
+            for n in s.tile.neighbors:
+                if n.furnishing and n.furnishing.is_piano:
+                    s.play(n.furnishing)
+                    break
 
         draw_everything(self, general_tile_func)
 
